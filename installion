@@ -1,0 +1,142 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'optparse'
+require 'fileutils'
+include FileUtils
+
+opt_parser = OptionParser.new do |opt|
+  opt.banner = "Usage: installion SOURCE [TARGET]"
+  opt.on("-h","--help","help") do
+    puts opt_parser
+  end
+end
+
+opt_parser.parse!
+
+
+# Install an OS X package
+class Installion
+
+  def initialize(source, target=nil)
+
+    # Path to where installers are stored
+    @installers_path = File.expand_path "~/Dropbox/Installers"
+
+    # Path to where *.app files get copied
+    @applications_path = target || File.expand_path("/Applications")
+
+    # Path to where *.prefPane files get copied
+    @preference_panes_path = target || File.expand_path("~/Library/PreferencePanes")
+
+    # Path to where *.service files get copied
+    @services_path = target || File.expand_path("~/Library/Services")
+
+    # Path to where *.pkg and *.mpkg files get installed
+    @packages_path = target || File.expand_path("/")
+
+
+    # Get the filename
+    file_name = File.basename(source).split("#").first.split("&").first.split("?").first
+
+    # Path to temp directory
+    @tmp_path = "/tmp/#{File.basename(file_name, '.*')}"
+
+    unless File.file? source
+
+      # Perhaps the source exists locally?
+      local_search = `find "#{@installers_path}" -iname "#{file_name}" | head -n 1`.strip
+      source = local_search unless local_search.empty?
+
+      # Source is a URL
+      if source.match(/^(http|ftp)/)
+        url = source
+
+        download_path = "#{@tmp_path}/download"
+        mkdir_p download_path
+
+        source = "#{download_path}/#{file_name}"
+        `curl "#{url}" -o "#{source}"`
+      end
+    end
+
+    puts "Installing #{source}"
+    install [source]	
+
+    # Clean up
+    # rm_rf @tmp_path
+  end
+
+  def install(sources)
+    sources.each do |source|	
+      case File.extname(source)
+
+      when '.zip'
+        unzip_path = "#{@tmp_path}/unzip"
+        mkdir_p unzip_path
+        cd unzip_path
+        `unzip -o "#{source}"`
+        puts "Unzipped #{source} to #{unzip_path}"
+
+        install new_sources(unzip_path)
+
+      when '.dmg'
+        volume = `yes | hdiutil attach "#{source}" | grep /Volumes/`.split('/Volumes/').last.strip
+        volume_path = "/Volumes/#{volume}"
+        puts "Mounted #{source} to #{volume_path}"
+
+        install new_sources(volume_path)
+
+        `hdiutil detach "#{volume_path}"`
+        puts "Unmounted #{volume_path}"
+
+      when '.app'
+        `sudo mkdir -p #{@applications_path}`
+        `sudo cp -R "#{source}" "#{@applications_path}"`
+        puts "Copied #{source} to #{@applications_path}"
+
+      when '.pkg'
+        `sudo mkdir -p #{@packages_path}`
+        `sudo -S installer -verbose -pkg "#{source}" -target "#{@packages_path}"`
+        puts "Installed #{source} to #{@packages_path}"
+
+      when '.mpkg'
+        `sudo mkdir -p #{@packages_path}`
+        `sudo -S installer -verbose -pkg #{source} -target "#{@packages_path}"`
+        puts "Installed #{source} to #{@packages_path}"
+
+      when '.service'
+        `sudo mkdir -p #{@services_path}`
+        `sudo cp -R "#{source}" "#{@services_path}"`
+        puts "Copied #{source} to #{@services_path}"
+
+      when '.prefPane'
+        `sudo mkdir -p #{@preference_panes_path}`
+        `sudo cp -R "#{source}" "#{@preference_panes_path}"`
+        puts "Copied #{source} to #{@preference_panes_path}"
+
+      when '.safariextz'
+        `open -a Safari "#{source}"`
+        puts "Installed #{source}"
+
+      else
+      end
+
+    end
+  end	
+
+  def new_sources(path)
+    file_types = "zip,dmg,app,pkg,mpkg,service,prefPane,safariextz"
+    Dir.glob "#{path}/*.{#{file_types}}"
+  end
+
+end
+
+
+if ARGV[0]
+  source = ARGV[0]
+  target = ARGV[1] || nil
+  Installion.new source, target
+else
+  puts opt_parser
+end
