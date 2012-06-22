@@ -21,7 +21,7 @@ class Installion
   def initialize(source, target=nil)
 
     # Path to where installers are stored
-    @installers_path = File.expand_path "~/Dropbox/Installers"
+    @installers_path = ENV['INSTALLION_SOURCE'] || File.expand_path("~/Dropbox/Installers")
 
     # Path to where *.app files get copied
     @applications_path = target || File.expand_path("/Applications")
@@ -36,17 +36,16 @@ class Installion
     @packages_path = target || File.expand_path("/")
 
 
-    # Get the filename
-    file_name = File.basename(source).split("#").first.split("&").first.split("?").first
-
     # Path to temp directory
-    @tmp_path = "/tmp/#{File.basename(file_name, '.*')}"
+    @tmp_path = "/tmp/#{File.basename(filename(source), '.*')}"
 
     unless File.file? source
 
       # Perhaps the source exists locally?
-      local_search = `find "#{@installers_path}" -iname "#{file_name}" | head -n 1`.strip
-      source = local_search unless local_search.empty?
+      unless @installers_path.empty?
+        local_search = `find "#{@installers_path}" -iname "#{filename(source)}" | head -n 1`.strip
+        source = local_search unless local_search.empty?
+      end
 
       # Source is a URL
       if source.match(/^(http|ftp)/)
@@ -55,7 +54,7 @@ class Installion
         download_path = "#{@tmp_path}/download"
         mkdir_p download_path
 
-        source = "#{download_path}/#{file_name}"
+        source = "#{download_path}/#{filename(url)}"
         `curl "#{url}" -o "#{source}"`
       end
     end
@@ -92,6 +91,14 @@ class Installion
 
       when '.app'
         `sudo mkdir -p #{@applications_path}`
+
+        if File.exists? "#{@applications_path}/#{filename(source)}"
+          puts "Found #{@applications_path}/#{filename(source)}"
+
+          `sudo rm -rf "#{@applications_path}/#{filename(source)}"`
+          puts "Deleted #{@applications_path}/#{filename(source)}"
+        end
+
         `sudo cp -R "#{source}" "#{@applications_path}"`
         puts "Copied #{source} to #{@applications_path}"
 
@@ -124,6 +131,10 @@ class Installion
 
     end
   end	
+
+  def filename(source)
+    File.basename(source).split("#").first.split("&").first.split("?").first
+  end
 
   def new_sources(path)
     file_types = "zip,dmg,app,pkg,mpkg,service,prefPane,safariextz"
