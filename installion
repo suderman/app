@@ -168,27 +168,27 @@ class Installion
 
   # Path to where installers are stored
   def installers_path
-    ENV['INSTALLION_SOURCE'] || File.expand_path("~/Dropbox/Installers")
+    File.expand_path ENV['INSTALLION_SOURCE'] || "~/Dropbox/Installers"
   end
 
   # Path to where *.app files get copied
   def applications_path 
-    @target || File.expand_path("/Applications")
+    File.expand_path @target || "/Applications"
   end
 
   # Path to where *.prefPane files get copied
   def preference_panes_path
-    @target || File.expand_path("~/Library/PreferencePanes")
+    File.expand_path @target || "~/Library/PreferencePanes"
   end
 
   # Path to where *.service files get copied
   def services_path
-    @target || File.expand_path("~/Library/Services")
+    File.expand_path @target || "~/Library/Services"
   end
 
   # Path to where *.pkg and *.mpkg files get installed
   def packages_path
-    @target || File.expand_path("/")
+    File.expand_path @target || "/"
   end
 
   def blue(text)
