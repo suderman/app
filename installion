@@ -86,8 +86,8 @@ class Installion
 
         install new_sources(volume_path)
 
-        `hdiutil detach "#{volume_path}"`
-        puts "Unmounted #{volume_path}"
+        status = `hdiutil detach "#{volume_path}" 2>&1`
+        puts "Unmounted #{volume_path}" unless status.match(/detach failed/)
 
       when '.app'
         `sudo mkdir -p #{@applications_path}`
