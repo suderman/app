@@ -5,13 +5,17 @@ require 'optparse'
 require 'fileutils'
 include FileUtils
 
+show_help = false
+open_app = false
+
 opt_parser = OptionParser.new do |opt|
   opt.banner = "Usage: installion [OPTIONS] SOURCE [TARGET]"
-  opt.on("-o","--open","Open app from source (instead of copying to target)") { OPEN_APP = true }
-  opt.on("-h","--help","help") { SHOW_HELP = true }
+  opt.on("-o","--open","Open app from source (instead of copying to target)") { open_app = true }
+  opt.on("-h","--help","help") { show_help = true }
 end
-opt_parser.parse!
 
+opt_parser.parse!
+OPEN_APP = open_app
 
 # Install an OS X package
 class Installion
@@ -42,7 +46,7 @@ class Installion
       end
     end
 
-    puts "Installing #{source}"
+    puts blue('Installing ') + gray(source)
     install [source]	
 
     # Clean up
@@ -61,74 +65,74 @@ class Installion
         mkdir_p unzip_path
         cd unzip_path
         `unzip -o "#{source}"`
-        puts "Unzipped #{source} to #{unzip_path}"
+        puts blue('Unzipped ') + gray(source) + blue(' to ') + gray(unzip_path)
 
         install new_sources(unzip_path)
 
       when :dmg
         volume = `yes | hdiutil attach "#{source}" | grep /Volumes/`.split('/Volumes/').last.strip
         volume_path = "/Volumes/#{volume}"
-        puts "Mounted #{source} to #{volume_path}"
+        puts blue('Mounted ') + gray(source) + blue(' to ') + gray(volume_path)
 
         install new_sources(volume_path)
 
         status = `hdiutil detach "#{volume_path}" 2>&1`
-        puts "Unmounted #{volume_path}" unless status.match(/detach failed/)
+        puts blue('Unmounted ') + gray(volume_path) unless status.match(/(detach failed|couldn't unmount)/)
 
       when :app
         `sudo mkdir -p #{applications_path}`
 
         if OPEN_APP 
-          puts "Opening #{source}"
+          puts blue('Opening ') + gray(source)
           `open -a "#{source}"` 
 
         else
           if File.exists? "#{applications_path}/#{filename(source)}"
-            puts "Found #{applications_path}/#{filename(source)}"
+            puts blue('Found existing ') + gray("#{applications_path}/#{filename(source)}")
 
             `sudo rm -rf "#{applications_path}/#{filename(source)}"`
-            puts "Deleted #{applications_path}/#{filename(source)}"
+            puts blue('Deleted ') + gray("#{applications_path}/#{filename(source)}")
           end
 
           `sudo cp -R "#{source}" "#{applications_path}"`
-          puts "Copied #{source} to #{applications_path}"
+          puts blue('Copied ') + gray(source) + blue(' to ') + gray(applications_path)
         end
 
       when :pkg
         `sudo mkdir -p #{packages_path}`
         `sudo -S installer -verbose -pkg "#{source}" -target "#{packages_path}"`
-        puts "Installed #{source} to #{packages_path}"
+        puts blue('Installed ') + gray(source) + blue(' to ') + gray(packages_path)
 
       when :mpkg
         `sudo mkdir -p #{packages_path}`
         `sudo -S installer -verbose -pkg #{source} -target "#{packages_path}"`
-        puts "Installed #{source} to #{packages_path}"
+        puts blue('Installed ') + gray(source) + blue(' to ') + gray(packages_path)
 
       when :service
         `sudo mkdir -p #{services_path}`
 
         if OPEN_APP 
-          puts "Opening #{source}"
+          puts blue('Opening ') + gray(source)
           `open -a "#{source}"` 
         else
           `sudo cp -R "#{source}" "#{services_path}"`
-          puts "Copied #{source} to #{services_path}"
+          puts blue('Copied ') + gray(source) + blue(' to ') + gray(services_path)
         end
 
       when :prefPane
         `sudo mkdir -p #{preference_panes_path}`
 
         if OPEN_APP 
-          puts "Opening #{source}"
+          puts blue('Opening ') + gray(source)
           `open -a "#{source}"` 
         else
           `sudo cp -R "#{source}" "#{preference_panes_path}"`
-          puts "Copied #{source} to #{preference_panes_path}"
+          puts blue('Copied ') + gray(source) + blue(' to ') + gray(preference_panes_path)
         end
 
       when :safariextz
         `open -a Safari "#{source}"`
-        puts "Installed #{source}"
+        puts blue('Installed ') + gray(source)
 
       else
       end
@@ -186,6 +190,15 @@ class Installion
   def packages_path
     @target || File.expand_path("/")
   end
+
+  def blue(text)
+    "\033[34m#{text}\033[m"
+  end
+
+  def gray(text)
+    "\033[37m#{text}\033[m"
+  end
+
 end
 
 
@@ -194,10 +207,7 @@ if ARGV[0]
   target = ARGV[1] || nil
   Installion.new source, target
 else
-  puts opt_parser
-  already_did_the_help_thing = true
+  show_help = true
 end
 
-unless already_did_the_help_thing
-  puts opt_parser if SHOW_HELP
-end
+puts opt_parser if show_help
