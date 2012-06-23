@@ -17,22 +17,7 @@ opt_parser.parse!
 class Installion
 
   def initialize(source, target=nil)
-
-    # Path to where installers are stored
-    @installers_path = ENV['INSTALLION_SOURCE'] || File.expand_path("~/Dropbox/Installers")
-
-    # Path to where *.app files get copied
-    @applications_path = target || File.expand_path("/Applications")
-
-    # Path to where *.prefPane files get copied
-    @preference_panes_path = target || File.expand_path("~/Library/PreferencePanes")
-
-    # Path to where *.service files get copied
-    @services_path = target || File.expand_path("~/Library/Services")
-
-    # Path to where *.pkg and *.mpkg files get installed
-    @packages_path = target || File.expand_path("/")
-
+    @target = target
 
     # Path to temp directory
     @tmp_path = "/tmp/#{File.basename(filename(source), '.*')}"
@@ -40,8 +25,8 @@ class Installion
     unless File.file? source
 
       # Perhaps the source exists locally?
-      unless @installers_path.empty?
-        local_search = `find "#{@installers_path}" -iname "#{filename(source)}" | head -n 1`.strip
+      unless installers_path.empty?
+        local_search = `find "#{installers_path}" -iname "#{filename(source)}" | head -n 1`.strip
         source = local_search unless local_search.empty?
       end
 
@@ -66,9 +51,12 @@ class Installion
 
   def install(sources)
     sources.each do |source|	
-      case File.extname(source)
+      case this_kind_of source 
 
-      when '.zip'
+      when :dir
+        install new_sources(source)
+
+      when :zip
         unzip_path = "#{@tmp_path}/unzip"
         mkdir_p unzip_path
         cd unzip_path
@@ -77,7 +65,7 @@ class Installion
 
         install new_sources(unzip_path)
 
-      when '.dmg'
+      when :dmg
         volume = `yes | hdiutil attach "#{source}" | grep /Volumes/`.split('/Volumes/').last.strip
         volume_path = "/Volumes/#{volume}"
         puts "Mounted #{source} to #{volume_path}"
@@ -87,40 +75,58 @@ class Installion
         status = `hdiutil detach "#{volume_path}" 2>&1`
         puts "Unmounted #{volume_path}" unless status.match(/detach failed/)
 
-      when '.app'
-        `sudo mkdir -p #{@applications_path}`
+      when :app
+        `sudo mkdir -p #{applications_path}`
 
-        if File.exists? "#{@applications_path}/#{filename(source)}"
-          puts "Found #{@applications_path}/#{filename(source)}"
+        if OPEN_APP 
+          puts "Opening #{source}"
+          `open -a "#{source}"` 
 
-          `sudo rm -rf "#{@applications_path}/#{filename(source)}"`
-          puts "Deleted #{@applications_path}/#{filename(source)}"
+        else
+          if File.exists? "#{applications_path}/#{filename(source)}"
+            puts "Found #{applications_path}/#{filename(source)}"
+
+            `sudo rm -rf "#{applications_path}/#{filename(source)}"`
+            puts "Deleted #{applications_path}/#{filename(source)}"
+          end
+
+          `sudo cp -R "#{source}" "#{applications_path}"`
+          puts "Copied #{source} to #{applications_path}"
         end
 
-        `sudo cp -R "#{source}" "#{@applications_path}"`
-        puts "Copied #{source} to #{@applications_path}"
+      when :pkg
+        `sudo mkdir -p #{packages_path}`
+        `sudo -S installer -verbose -pkg "#{source}" -target "#{packages_path}"`
+        puts "Installed #{source} to #{packages_path}"
 
-      when '.pkg'
-        `sudo mkdir -p #{@packages_path}`
-        `sudo -S installer -verbose -pkg "#{source}" -target "#{@packages_path}"`
-        puts "Installed #{source} to #{@packages_path}"
+      when :mpkg
+        `sudo mkdir -p #{packages_path}`
+        `sudo -S installer -verbose -pkg #{source} -target "#{packages_path}"`
+        puts "Installed #{source} to #{packages_path}"
 
-      when '.mpkg'
-        `sudo mkdir -p #{@packages_path}`
-        `sudo -S installer -verbose -pkg #{source} -target "#{@packages_path}"`
-        puts "Installed #{source} to #{@packages_path}"
+      when :service
+        `sudo mkdir -p #{services_path}`
 
-      when '.service'
-        `sudo mkdir -p #{@services_path}`
-        `sudo cp -R "#{source}" "#{@services_path}"`
-        puts "Copied #{source} to #{@services_path}"
+        if OPEN_APP 
+          puts "Opening #{source}"
+          `open -a "#{source}"` 
+        else
+          `sudo cp -R "#{source}" "#{services_path}"`
+          puts "Copied #{source} to #{services_path}"
+        end
 
-      when '.prefPane'
-        `sudo mkdir -p #{@preference_panes_path}`
-        `sudo cp -R "#{source}" "#{@preference_panes_path}"`
-        puts "Copied #{source} to #{@preference_panes_path}"
+      when :prefPane
+        `sudo mkdir -p #{preference_panes_path}`
 
-      when '.safariextz'
+        if OPEN_APP 
+          puts "Opening #{source}"
+          `open -a "#{source}"` 
+        else
+          `sudo cp -R "#{source}" "#{preference_panes_path}"`
+          puts "Copied #{source} to #{preference_panes_path}"
+        end
+
+      when :safariextz
         `open -a Safari "#{source}"`
         puts "Installed #{source}"
 
@@ -134,11 +140,52 @@ class Installion
     File.basename(source).split("#").first.split("&").first.split("?").first
   end
 
-  def new_sources(path)
-    file_types = "zip,dmg,app,pkg,mpkg,service,prefPane,safariextz"
-    Dir.glob "#{path}/*.{#{file_types}}"
+  def this_kind_of(source)
+    ext = File.extname(source).split('.').last
+    return ext.to_sym if file_types.split(',').include? ext
+    return :dir if File.directory? source
+    :unknown
   end
 
+  def new_sources(path)
+    sources = Dir.glob "#{path}/*.{#{file_types}}" 
+    directories = Dir.entries(path).select {|f| File.directory? "#{path}/#{f}" and !(f.match(/^(\.#{ignored_directories})/i)) }
+    sources |= directories.each_with_index { |dir, i| directories[i] = "#{path}/#{dir}" }
+  end
+
+  def file_types
+    "zip,dmg,app,pkg,mpkg,service,prefPane,safariextz"
+  end
+
+  def ignored_directories
+    dirs = ENV['INSTALLION_IGNORED'] || "payloads,packages,resources,deployment"
+    "|#{dirs.gsub ',', '|'}"
+  end
+
+  # Path to where installers are stored
+  def installers_path
+    ENV['INSTALLION_SOURCE'] || File.expand_path("~/Dropbox/Installers")
+  end
+
+  # Path to where *.app files get copied
+  def applications_path 
+    @target || File.expand_path("/Applications")
+  end
+
+  # Path to where *.prefPane files get copied
+  def preference_panes_path
+    @target || File.expand_path("~/Library/PreferencePanes")
+  end
+
+  # Path to where *.service files get copied
+  def services_path
+    @target || File.expand_path("~/Library/Services")
+  end
+
+  # Path to where *.pkg and *.mpkg files get installed
+  def packages_path
+    @target || File.expand_path("/")
+  end
 end
 
 
