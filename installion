@@ -6,12 +6,10 @@ require 'fileutils'
 include FileUtils
 
 opt_parser = OptionParser.new do |opt|
-  opt.banner = "Usage: installion SOURCE [TARGET]"
-  opt.on("-h","--help","help") do
-    puts opt_parser
-  end
+  opt.banner = "Usage: installion [OPTIONS] SOURCE [TARGET]"
+  opt.on("-o","--open","Open app from source (instead of copying to target)") { OPEN_APP = true }
+  opt.on("-h","--help","help") { SHOW_HELP = true }
 end
-
 opt_parser.parse!
 
 
@@ -150,4 +148,9 @@ if ARGV[0]
   Installion.new source, target
 else
   puts opt_parser
+  already_did_the_help_thing = true
+end
+
+unless already_did_the_help_thing
+  puts opt_parser if SHOW_HELP
 end
