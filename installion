@@ -39,14 +39,14 @@ class Installion
         url = source
 
         download_path = "#{@tmp_path}/download"
-        mkdir_p download_path
+        mkdir download_path
 
         source = "#{download_path}/#{filename(url)}"
         `curl "#{url}" -o "#{source}"`
       end
     end
 
-    puts blue('Installing ') + gray(source)
+    puts blue('Source ') + gray(source)
     install [source]	
 
     # Clean up
@@ -62,7 +62,7 @@ class Installion
 
       when :zip
         unzip_path = "#{@tmp_path}/unzip"
-        mkdir_p unzip_path
+        mkdir unzip_path
         cd unzip_path
         `unzip -o "#{source}"`
         puts blue('Unzipped ') + gray(source) + blue(' to ') + gray(unzip_path)
@@ -77,61 +77,47 @@ class Installion
         install new_sources(volume_path)
 
         status = `hdiutil detach "#{volume_path}" 2>&1`
-        puts blue('Unmounted ') + gray(volume_path) unless status.match(/(detach failed|couldn't unmount)/)
+        puts blue('Unmounted ') + gray(volume_path) unless status.match(/(detach failed|couldn't unmount)/i)
 
       when :app
-        `sudo mkdir -p #{applications_path}`
+        mkdir applications_path
 
-        if OPEN_APP 
-          puts blue('Opening ') + gray(source)
-          `open -a "#{source}"` 
-
-        else
-          if File.exists? "#{applications_path}/#{filename(source)}"
-            puts blue('Found existing ') + gray("#{applications_path}/#{filename(source)}")
-
-            `sudo rm -rf "#{applications_path}/#{filename(source)}"`
-            puts blue('Deleted ') + gray("#{applications_path}/#{filename(source)}")
-          end
-
-          `sudo cp -R "#{source}" "#{applications_path}"`
-          puts blue('Copied ') + gray(source) + blue(' to ') + gray(applications_path)
+        if OPEN_APP
+          open source
+        else 
+          cp source, applications_path 
         end
 
       when :pkg
-        `sudo mkdir -p #{packages_path}`
+        mkdir packages_path
+        puts blue('Package ') + gray(source)
         `sudo -S installer -verbose -pkg "#{source}" -target "#{packages_path}"`
-        puts blue('Installed ') + gray(source) + blue(' to ') + gray(packages_path)
 
       when :mpkg
-        `sudo mkdir -p #{packages_path}`
-        `sudo -S installer -verbose -pkg #{source} -target "#{packages_path}"`
-        puts blue('Installed ') + gray(source) + blue(' to ') + gray(packages_path)
+        mkdir packages_path
+        puts blue('Package ') + gray(source)
+        `sudo -S installer -verbose -pkg "#{source}" -target "#{packages_path}"`
 
       when :service
-        `sudo mkdir -p #{services_path}`
+        mkdir services_path
 
         if OPEN_APP 
-          puts blue('Opening ') + gray(source)
-          `open -a "#{source}"` 
+          open source
         else
-          `sudo cp -R "#{source}" "#{services_path}"`
-          puts blue('Copied ') + gray(source) + blue(' to ') + gray(services_path)
+          cp source, services_path
         end
 
       when :prefPane
-        `sudo mkdir -p #{preference_panes_path}`
+        mkdir preference_panes_path
 
         if OPEN_APP 
-          puts blue('Opening ') + gray(source)
-          `open -a "#{source}"` 
+          open source
         else
-          `sudo cp -R "#{source}" "#{preference_panes_path}"`
-          puts blue('Copied ') + gray(source) + blue(' to ') + gray(preference_panes_path)
+          cp source, preference_panes_path
         end
 
       when :safariextz
-        `open -a Safari "#{source}"`
+        open 'Safari', source
         puts blue('Installed ') + gray(source)
 
       else
@@ -164,6 +150,52 @@ class Installion
   def ignored_directories
     dirs = ENV['INSTALLION_IGNORED'] || "payloads,packages,resources,deployment"
     "|#{dirs.gsub ',', '|'}"
+  end
+
+  def cp(source, target)
+
+    rm "#{target}/#{filename(source)}"
+
+    copied = 'Copied '
+    status = `cp -R "#{source}" "#{target}" 2>&1`
+
+    if status.match(/permission denied/i)
+      rm "#{target}/#{filename(source)}", true
+      copied = 'Copied (sudo) '
+      `sudo cp -R "#{source}" "#{target}" 2>&1`
+    end
+
+    puts blue(copied) + gray(source) + blue(' to ') + gray(target)
+  end
+
+  def rm(target, silent=false)
+
+    if File.exists? target
+      puts blue('Found existing ') + gray(target) unless silent 
+
+      deleted = 'Deleted '
+      status = `rm -rf "#{target}" 2>&1`
+
+      if status.match(/permission denied/i)
+        deleted = 'Deleted (sudo) '
+        `sudo rm -rf "#{target}" 2>&1`
+      end
+
+      puts blue(deleted) + gray(target) unless silent
+    end
+
+  end
+
+  def mkdir(target)
+    status = `mkdir -p "#{target}" 2>&1`
+    if status.match(/permission denied/i)
+      `sudo mkdir -p "#{target}" 2>&1`
+    end
+  end
+
+  def open(source, args='')
+    puts blue('Opening ') + gray(source)
+    `open -a "#{source}" "#{args}"`
   end
 
   # Path to where installers are stored
