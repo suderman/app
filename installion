@@ -5,23 +5,12 @@ require 'optparse'
 require 'fileutils'
 include FileUtils
 
-show_help = false
-open_app = false
-
-opt_parser = OptionParser.new do |opt|
-  opt.banner = "Usage: installion [OPTIONS] SOURCE [TARGET]"
-  opt.on("-o","--open","Open app from source (instead of copying to target)") { open_app = true }
-  opt.on("-h","--help","help") { show_help = true }
-end
-
-opt_parser.parse!
-OPEN_APP = open_app
-
 # Install an OS X package
 class Installion
 
-  def initialize(source, target=nil)
+  def initialize(source, target, options)
     @target = target
+    @options = options
 
     # Path to temp directory
     @tmp_path = "/tmp/#{File.basename(filename(source), '.*')}"
@@ -46,146 +35,219 @@ class Installion
       end
     end
 
-    puts blue('Source ') + gray(source)
-    install [source]	
+    if File.file? source
+      puts blue('Source ') + gray(source)
+      install [source]	
+    else
+      puts blue('Source not found!')
+    end
 
-    # Clean up
-    # rm_rf @tmp_path
   end
 
+  # Recursively walk through each source
   def install(sources)
     sources.each do |source|	
+
+      # Determine what kind of file we're dealing with
       case this_kind_of source 
 
+      # Go deeper on directories
       when :dir
         install new_sources(source)
 
+
+      # Unzip contents and go deeper
       when :zip
         unzip_path = "#{@tmp_path}/unzip"
         mkdir unzip_path
         cd unzip_path
+
+        # Unzip source
         `unzip -o "#{source}"`
         puts blue('Unzipped ') + gray(source) + blue(' to ') + gray(unzip_path)
 
+        # Look for more sources inside
         install new_sources(unzip_path)
 
+
+      # Mount disk images and go deeper
       when :dmg
         volume = `yes | hdiutil attach "#{source}" | grep /Volumes/`.split('/Volumes/').last.strip
         volume_path = "/Volumes/#{volume}"
         puts blue('Mounted ') + gray(source) + blue(' to ') + gray(volume_path)
 
+        # Look for more sources inside
         install new_sources(volume_path)
 
-        status = `hdiutil detach "#{volume_path}" 2>&1`
-        puts blue('Unmounted ') + gray(volume_path) unless status.match(/(detach failed|couldn't unmount)/i)
+        # Unmount volume (or at least try to)
+        output = `hdiutil detach "#{volume_path}" 2>&1`
+        puts blue('Unmounted ') + gray(volume_path) unless output.match(/(detach failed|couldn't unmount)/i)
 
+
+      # Copy app files to the Applications directory (or open them)
       when :app
         mkdir applications_path
 
-        if OPEN_APP
+        if @options[:open]
           open source
         else 
           cp source, applications_path 
         end
 
-      when :pkg
+      # Run the installer on package files
+      when :pkg, :mpkg
         mkdir packages_path
-        puts blue('Package ') + gray(source)
-        `sudo -S installer -verbose -pkg "#{source}" -target "#{packages_path}"`
 
-      when :mpkg
-        mkdir packages_path
-        puts blue('Package ') + gray(source)
-        `sudo -S installer -verbose -pkg "#{source}" -target "#{packages_path}"`
+        # First try to run the installer without sudo
+        package = 'Package '
+        output = `installer -pkg "#{source}" -target "#{packages_path}" 2>&1`
 
+        # Should that fail, go full-sudo
+        if output.match(/run as root/i)
+          package = 'Package (sudo) '
+          output = `sudo installer -pkg "#{source}" -target "#{packages_path}" 2>&1`
+        end
+
+        puts blue(package) + gray(source)
+        puts output
+
+
+      # Copy service files to the Library
       when :service
         mkdir services_path
 
-        if OPEN_APP 
+        if @options[:open]
           open source
         else
           cp source, services_path
         end
 
+
+      # Copy prefPane files to the Library
       when :prefPane
         mkdir preference_panes_path
 
-        if OPEN_APP 
+        if @options[:open]
           open source
         else
           cp source, preference_panes_path
         end
 
+
+      # Open safariextz files in Safari
       when :safariextz
         open 'Safari', source
         puts blue('Installed ') + gray(source)
-
-      else
       end
 
     end
   end	
 
+
+  # Get the file name from a path or URL (without any query strings on the end)
   def filename(source)
     File.basename(source).split("#").first.split("&").first.split("?").first
   end
 
+
+  # Determine what kind of source
   def this_kind_of(source)
     ext = File.extname(source).split('.').last
+
+    # Check the extension against known extensions
     return ext.to_sym if file_types.split(',').include? ext
+
+    # Else, check if it's a directory
     return :dir if File.directory? source
+
+    # It's a mystery!
     :unknown
   end
 
+
+  # Find new sources inside a directory
   def new_sources(path)
+
+    # Look for known file extensions
     sources = Dir.glob "#{path}/*.{#{file_types}}" 
+
+    # Also look for directories (that aren't black-listed)
     directories = Dir.entries(path).select {|f| File.directory? "#{path}/#{f}" and !(f.match(/^(\.#{ignored_directories})/i)) }
     sources |= directories.each_with_index { |dir, i| directories[i] = "#{path}/#{dir}" }
   end
 
+
+  # Known file types
   def file_types
     "zip,dmg,app,pkg,mpkg,service,prefPane,safariextz"
   end
 
+
+  # Ignored directories (from oddball installers)
   def ignored_directories
     dirs = ENV['INSTALLION_IGNORED'] || "payloads,packages,resources,deployment"
     "|#{dirs.gsub ',', '|'}"
   end
 
+
+  # Copy the source file to the target directory
   def cp(source, target)
 
-    rm "#{target}/#{filename(source)}"
+    # Cancel if existing files can't be taken care of
+    return unless rm "#{target}/#{filename(source)}"
 
+    # First try to copy sudo-free
     copied = 'Copied '
-    status = `cp -R "#{source}" "#{target}" 2>&1`
+    output = `cp -R "#{source}" "#{target}" 2>&1`
 
-    if status.match(/permission denied/i)
+    # If that doesn't work, go full-sudo
+    if output.match(/permission denied/i)
+
+      # Delete the target again, in case some files got copied
       rm "#{target}/#{filename(source)}", true
+
+      # Sudo power!
       copied = 'Copied (sudo) '
       `sudo cp -R "#{source}" "#{target}" 2>&1`
     end
 
+    # Report what happened
     puts blue(copied) + gray(source) + blue(' to ') + gray(target)
   end
 
+
+  # Delete the target file
   def rm(target, silent=false)
 
+    # Check if the file actually exists
     if File.exists? target
       puts blue('Found existing ') + gray(target) unless silent 
 
-      deleted = 'Deleted '
-      status = `rm -rf "#{target}" 2>&1`
+      # Politely ask if it's okay to destory this file. Leave if not.
+      unless silent
+        return false unless ask("Overwrite existing #{target}?")
+      end
 
-      if status.match(/permission denied/i)
+      # Attempt to the delete this file, sudo-free
+      deleted = 'Deleted '
+      output = `rm -rf "#{target}" 2>&1`
+
+      # If that doesn't work, go full-sudo
+      if output.match(/permission denied/i)
         deleted = 'Deleted (sudo) '
         `sudo rm -rf "#{target}" 2>&1`
       end
 
+      # Report what happened
       puts blue(deleted) + gray(target) unless silent
     end
 
+    # Return true unless asked to leave existing files alone
+    true
   end
 
+
+  # Make a directory, using sudo if needed
   def mkdir(target)
     status = `mkdir -p "#{target}" 2>&1`
     if status.match(/permission denied/i)
@@ -193,14 +255,31 @@ class Installion
     end
   end
 
+
+  # Open a file
   def open(source, args='')
     puts blue('Opening ') + gray(source)
     `open -a "#{source}" "#{args}"`
   end
 
+
+  # Ask for permission; skip if force is enabled
+  def ask(prompt)
+    return true if @options[:force]
+    print yellow("#{prompt} [y/n]"), ' '
+    $stdin.gets.strip.match /^y/i
+  end
+
+
+  # Pretty colours
+  def yellow(text) "\033[33m#{text}\033[m" end
+  def blue(text)   "\033[34m#{text}\033[m" end
+  def gray(text)   "\033[37m#{text}\033[m" end
+
+
   # Path to where installers are stored
   def installers_path
-    File.expand_path ENV['INSTALLION_SOURCE'] || "~/Dropbox/Installers"
+    File.expand_path ENV['INSTALLION_SOURCE'] || "~"
   end
 
   # Path to where *.app files get copied
@@ -223,23 +302,32 @@ class Installion
     File.expand_path @target || "/"
   end
 
-  def blue(text)
-    "\033[34m#{text}\033[m"
-  end
-
-  def gray(text)
-    "\033[37m#{text}\033[m"
-  end
-
 end
 
 
+# Default values for options
+options = { :open => false, :force => false, :help => false }
+
+# Option parser
+opt_parser = OptionParser.new do |opt|
+  opt.banner = "Usage: installion [OPTIONS] SOURCE [TARGET]"
+  opt.on("-o","--open","Open app from source (instead of copying to target)") { options[:open] = true }
+  opt.on("-f","--force","Force existing apps to be overwritten") { options[:force] = true }
+  opt.on("-h","--help","help") { options[:help] = true }
+end
+
+opt_parser.parse!
+
+
+# If there's an argument, let's do this:
 if ARGV[0]
   source = ARGV[0]
   target = ARGV[1] || nil
-  Installion.new source, target
+  Installion.new source, target, options
+
+# If there's no arguments, show the help
 else
-  show_help = true
+  options[:help] = true
 end
 
-puts opt_parser if show_help
+puts opt_parser if options[:help]
