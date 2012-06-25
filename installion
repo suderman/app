@@ -35,6 +35,8 @@ class Installion
       end
     end
 
+    source = File.expand_path source
+
     if File.file? source
       puts blue('Source ') + gray(source)
       install [source]	
@@ -280,7 +282,7 @@ class Installion
 
   # Path to where installers are stored
   def installers_path
-    File.expand_path ENV['INSTALLION_SOURCE'] || "~"
+    File.expand_path ENV['INSTALLION_SOURCE'] || ""
   end
 
   # Path to where *.app files get copied
