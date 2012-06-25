@@ -14,7 +14,7 @@ Or, if the installer is already in my Downloads:
 
 `installion ~/Downloads/googlechrome.dmg`  
 
-Or, if I had set an installer directory (see customizations below):  
+Or, if I had set an installer directory (see [customize](#customize) below):  
 
 `installion googlechrome.dmg`  
 
@@ -36,10 +36,29 @@ You can also install via URL:
 
 `brew install https://raw.github.com/suderman/homebrew-suds/master/installion.rb`  
 
+Options
+-------
+Although installion tries to put stuff where it belongs (ie: .app files
+go in the /Applications directory), you can override this by passing a second 
+target parameter:  
+
+`installion googlechrome.dmg ~/Applications`  
+
+Also, installion is polite and won't overwrite existing files without
+asking. You can skip this by passing the -f option:  
+
+`installion -f googlechrome.dmg`  
+
+Some installers are .app files that need to be opened directly. Passing 
+the -o option will not copy anything, but instead open the installer within 
+the disk image:  
+
+`installion -o Photoshop_13_LS16-1.dmg`  
+
 Customize
 ---------
 installion has a couple customizations available via enironment
-variables.
+variables:
 
 ### Look for installers in a local directory
 Set `INSTALLION_SOURCE` to a directory on your local disk. You can still
@@ -55,4 +74,3 @@ of a few odd-ball installers, you may discover others that require
 custom filters. This example shows the default setting:  
 
 `INSTALLION_IGNORE=payloads,packages,resources,deployment`
-
