@@ -174,7 +174,13 @@ class Installion
     sources = Dir.glob "#{path}/*.{#{file_types}}" 
 
     # Also look for directories (that aren't black-listed)
-    directories = Dir.entries(path).select {|f| File.directory? "#{path}/#{f}" and !(f.match(/^(\.#{ignored_directories})/i)) }
+    directories = Dir.entries(path).select do |f| 
+      File.directory? "#{path}/#{f}" \
+      and !(File.symlink? "#{path}/#{f}") \
+      and !(f.match(/^(\.#{ignored_directories})/i))
+    end
+
+    # Combine files with directories (prepending full path to each directory)
     sources |= directories.each_with_index { |dir, i| directories[i] = "#{path}/#{dir}" }
   end
 
@@ -187,7 +193,7 @@ class Installion
 
   # Ignored directories (from oddball installers)
   def ignored_directories
-    dirs = ENV['INSTALLION_IGNORED'] || "payloads,packages,resources,deployment"
+    dirs = ENV['INSTALLION_IGNORE'] || "payloads,packages,resources,deployment"
     "|#{dirs.gsub ',', '|'}"
   end
 
