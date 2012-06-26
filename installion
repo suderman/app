@@ -177,7 +177,7 @@ class Installion
     directories = Dir.entries(path).select do |f| 
       File.directory? "#{path}/#{f}" \
       and !(File.symlink? "#{path}/#{f}") \
-      and !(f.match(/^(\.#{ignored_directories})/i))
+      and !(f.match(/^(\.|_#{ignored_directories})/i))
     end
 
     # Combine files with directories (prepending full path to each directory)
