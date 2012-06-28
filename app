@@ -6,7 +6,7 @@ require 'fileutils'
 include FileUtils
 
 # Install an OS X package
-class Installion
+class App
 
   def initialize(source, target, options)
     @target = target
@@ -193,7 +193,7 @@ class Installion
 
   # Ignored directories (from oddball installers)
   def ignored_directories
-    dirs = ENV['INSTALLION_IGNORE'] || "payloads,packages,resources,deployment"
+    dirs = ENV['APP_IGNORE'] || "payloads,packages,resources,deployment"
     "|#{dirs.gsub ',', '|'}"
   end
 
@@ -288,7 +288,7 @@ class Installion
 
   # Path to where installers are stored
   def installers_path
-    File.expand_path ENV['INSTALLION_SOURCE'] || ""
+    File.expand_path ENV['APP_SOURCE'] || ""
   end
 
   # Path to where *.app files get copied
@@ -319,7 +319,7 @@ options = { :open => false, :force => false, :help => false }
 
 # Option parser
 opt_parser = OptionParser.new do |opt|
-  opt.banner = "Usage: installion [OPTIONS] SOURCE [TARGET]"
+  opt.banner = "Usage: app [OPTIONS] SOURCE [TARGET]"
   opt.on("-o","--open","Open app from source (instead of copying to target)") { options[:open] = true }
   opt.on("-f","--force","Force existing apps to be overwritten") { options[:force] = true }
   opt.on("-h","--help","help") { options[:help] = true }
@@ -332,7 +332,7 @@ opt_parser.parse!
 if ARGV[0]
   source = ARGV[0]
   target = ARGV[1] || nil
-  Installion.new source, target, options
+  App.new source, target, options
 
 # If there's no arguments, show the help
 else
