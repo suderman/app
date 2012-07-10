@@ -18,15 +18,19 @@ Or, if I had set an installer directory (see [customize](#customize) below):
 
 `app googlechrome.dmg`  
 
-Install Manually
-----------------
+Install
+-------
+Open a terminal and run this command:  
+
+`curl https://raw.github.com/suderman/app/master/install.sh | sh`  
+
+### Or, clone the repo
 Download and copy `app` somewhere in your path, ie: 
 
 `git clone https://github.com/suderman/app.git`  
 `cp app/app /usr/local/bin`  
 
-Install with Homebrew
------------------------
+### Or, install with Homebrew
 Tap my [Homebrew repository](https://github.com/suderman/homebrew-suds) and install:  
 
 `brew tap suderman/suds`  
