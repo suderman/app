@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 
+# 2012 Jon Suderman
+# https://github.com/suderman/app/
+
 require 'rubygems'
 require 'optparse'
 require 'fileutils'
@@ -138,10 +141,18 @@ class App
 
       # Open safariextz files in Safari
       when :safariextz
-        open 'Safari', source
-        puts blue('Installed ') + gray(source)
-      end
 
+        # Copy the safariext to a tmp directory
+        copy_path = "#{@tmp_path}/copy"
+        mkdir copy_path
+        cp source, copy_path
+
+        # Open the copy (Safari auto-deletes it)
+        open 'Safari', "#{copy_path}/#{source}"
+
+        puts blue('Installed ') + gray(source)
+
+      end
     end
   end	
 
