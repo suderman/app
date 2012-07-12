@@ -1,6 +1,12 @@
 #!/bin/sh
 # curl https://raw.github.com/suderman/app/master/install.sh | sh
 
+# Ensure /usr/local/bin exists
+if [ ! -d "/usr/local" ]; then
+  sudo mkdir -p /usr/local/bin
+  sudo chown :admin /usr/{local,local/bin}
+fi
+
 # Download app into /usr/local/bin
 curl https://raw.github.com/suderman/app/master/app -o /usr/local/bin/app
 
