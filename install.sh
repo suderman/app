@@ -4,7 +4,7 @@
 # Ensure /usr/local/bin exists
 if [ ! -d "/usr/local" ]; then
   sudo mkdir -p /usr/local/bin
-  sudo chown :admin /usr/{local,local/bin}
+  sudo chown `whoami`:admin /usr/{local,local/bin}
 fi
 
 # Download app into /usr/local/bin
