@@ -299,7 +299,8 @@ class App
 
   # Path to where installers are stored
   def installers_path
-    File.expand_path ENV['APP_SOURCE'] || ""
+    path = File.expand_path ENV['APP_SOURCE'] || ""
+    (File.exist? path) ? path : ""
   end
 
   # Path to where *.app files get copied
