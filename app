@@ -128,8 +128,8 @@ class App
         end
 
 
-      # Copy prefPane files to the Library
-      when :prefPane
+      # Copy prefpane files to the Library
+      when :prefpane
         mkdir preference_panes_path
 
         if @options[:open]
@@ -165,7 +165,7 @@ class App
 
   # Determine what kind of source
   def this_kind_of(source)
-    ext = File.extname(source).split('.').last
+    ext = File.extname(source).split('.').last.downcase
 
     # Check the extension against known extensions
     return ext.to_sym if file_types.split(',').include? ext
@@ -198,7 +198,7 @@ class App
 
   # Known file types
   def file_types
-    "zip,dmg,app,pkg,mpkg,service,prefPane,safariextz"
+    "zip,dmg,app,pkg,mpkg,service,prefpane,safariextz"
   end
 
 
@@ -308,7 +308,7 @@ class App
     File.expand_path @target || "/Applications"
   end
 
-  # Path to where *.prefPane files get copied
+  # Path to where *.prefpane files get copied
   def preference_panes_path
     File.expand_path @target || "~/Library/PreferencePanes"
   end
