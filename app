@@ -165,7 +165,8 @@ class App
 
   # Determine what kind of source
   def this_kind_of(source)
-    ext = File.extname(source).split('.').last.downcase
+    ext = File.extname(source).split('.').last
+    ext = ext.downcase if ext
 
     # Check the extension against known extensions
     return ext.to_sym if file_types.split(',').include? ext
