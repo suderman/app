@@ -159,7 +159,8 @@ class App
 
   # Get the file name from a path or URL (without any query strings on the end)
   def filename(source)
-    File.basename(source).split("#").first.split("&").first.split("?").first
+    fname = File.basename(source).split("#").first.split("&").first.split("?")
+    fname.first.gsub("%20"," ").gsub("%2B","+")
   end
 
 
