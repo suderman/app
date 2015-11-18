@@ -18,53 +18,58 @@ class App
     # Path to temp directory
     @tmp_path = "/tmp/#{File.basename(filename(source), '.*')}"
 
-    # First check if source is Mac App Store 
-    match = source.match(/([^\/]+\/id\d+)/)
-    if match
-      macappstore "#{installers_mas}#{match.to_s}"  
+    # Stop if the the app has already been installed
+    if installed? @options[:check]
+      puts blue('Found existing ') + gray(@options[:check]) 
     else
 
-      unless File.file? source
-
-        # Perhaps the source exists locally?
-        unless installers_path.empty?
-          local_search = `find "#{installers_path}" -iname "#{filename(source)}" | head -n 1`.strip
-
-          # if found locally, update the source to the path
-          unless local_search.empty?
-            source = local_search
-            found_locally = true
-          end
-        end
-
-        unless found_locally
-          source = "#{installers_url}#{source}" unless source.match(/^(http|ftp)/)
-
-          # Source is a URL
-          if source.match(/^(http|ftp)/)
-            url = source
-
-            download_path = "#{@tmp_path}/download"
-            mkdir download_path
-
-            source = "#{download_path}/#{filename(url)}"
-            `curl #{client_certificate} "#{url}" -o "#{source}"`
-
-          end
-        end
-      end
-
-      source = File.expand_path source
-
-      if File.file? source
-        puts blue('Source ') + gray(source)
-        install [source]	
+      # First check if source is Mac App Store 
+      match = source.match(/([^\/]+\/id\d+)/)
+      if match
+        macappstore "#{installers_mas}#{match.to_s}"  
       else
-        puts blue('Source not found!')
+
+        unless File.file? source
+
+          # Perhaps the source exists locally?
+          unless installers_path.empty?
+            local_search = `find "#{installers_path}" -iname "#{filename(source)}" | head -n 1`.strip
+
+            # if found locally, update the source to the path
+            unless local_search.empty?
+              source = local_search
+              found_locally = true
+            end
+          end
+
+          unless found_locally
+            source = "#{installers_url}#{source}" unless source.match(/^(http|ftp)/)
+
+            # Source is a URL
+            if source.match(/^(http|ftp)/)
+              url = source
+
+              download_path = "#{@tmp_path}/download"
+              mkdir download_path
+
+              source = "#{download_path}/#{filename(url)}"
+              `curl #{client_certificate} "#{url}" -o "#{source}"`
+
+            end
+          end
+        end
+
+        source = File.expand_path source
+
+        if File.file? source
+          puts blue('Source ') + gray(source)
+          install [source]	
+        else
+          puts blue('Source not found!')
+        end
+
       end
-
     end
-
   end
 
   # Recursively walk through each source
@@ -228,6 +233,54 @@ class App
     "|#{dirs.gsub ',', '|'}"
   end
 
+  # Does a command exist?
+  def command?(name, options={})
+    return false if @options[:force]
+    system "type #{name} &> /dev/null"
+  end
+
+  # Has this app been installed?
+  def installed?(name=false)
+    return false unless name
+
+    # With force enabled, NOTHING has been installed
+    return false if @options[:force]
+
+    # First see if the name is a command
+    return true if command? name
+
+    # Otherwise, check for different app types
+    case name.split('.').last.downcase.to_sym
+
+    when :app
+      return true if find? "/Applications", name
+      return true if find? "~/Applications", name
+      return true if find? "~/Library/Application Support", name
+
+    when :prefpane
+      return true if find? "~/Library/PreferencePanes", name
+      return true if find? "/Library/PreferencePanes", name
+
+    when :service
+      return true if find? "~/Library/Services", name
+      return true if find? "/Library/Services", name
+
+    when :plugin
+      return true if find? "~/Library/Internet Plug-Ins", name
+      return true if find? "/Library/Internet Plug-Ins", name
+
+    when :safariextz
+      return true if find? "~/Library/Safari/Extensions", name
+
+    when :fxplug
+      return true if find? "/Library/Plug-Ins/FxPlug", name
+
+    when :moef
+      return true if find? "~/Movies/Motion Templates/Effects", name
+
+    end
+    false
+  end
 
   # Copy the source file to the target directory
   def cp(source, target)
@@ -294,6 +347,24 @@ class App
     end
   end
 
+  # Check if an app exists
+  def find?(path, name)
+
+    # Ensure the path we're searching in exists
+    path = File.expand_path(path)
+    return false unless File.exist? path
+
+    # Look for the file without sudo
+    find_command = "find \"#{path}\" -iname \"#{name}\" 2>&1 | head -n 1"
+    results = `#{find_command}`.chomp
+
+    # If that doesn't work, go full-sudo
+    if results.match(/permission denied/i)
+      results = `sudo #{find_command}`.chomp
+    end
+
+    true unless results.empty?
+  end
 
   # Open a file
   def open(source, args='')
@@ -416,11 +487,12 @@ end
 
 
 # Default values for options
-options = { :open => false, :force => false, :help => false }
+options = { :check => false, :open => false, :force => false, :help => false }
 
 # Option parser
 opt_parser = OptionParser.new do |opt|
   opt.banner = "Usage: app [OPTIONS] SOURCE [TARGET]"
+  opt.on("-c","--check DESTINATION","First check if installed") { |dest| options[:check] = dest }
   opt.on("-o","--open","Open app from source (instead of copying to target)") { options[:open] = true }
   opt.on("-f","--force","Force existing apps to be overwritten") { options[:force] = true }
   opt.on("-h","--help","help") { options[:help] = true }

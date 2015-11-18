@@ -55,6 +55,12 @@ the disk image:
 
 `app -o Photoshop_13_LS16-1.dmg`  
 
+If you know the filename of the installed application, you can check if it 
+already exists before downloading and installing. Passing the -c option along
+with a filename will check the expected destinations and stop if it's found:  
+
+`app 'Firefox 42.0.dmg' -c Firefox.app`  
+
 Customize
 ---------
 app has a couple customizations available via enironment
