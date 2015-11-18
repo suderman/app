@@ -14,31 +14,27 @@ Or, if the installer is already in my Downloads:
 
 `app ~/Downloads/googlechrome.dmg`  
 
-Or, if I had set an installer directory (see [customize](#customize) below):  
+Or, if I had set an installer directory or URL (see [customize](#customize) below):  
 
 `app googlechrome.dmg`  
+
+Additionally, the installation of apps in the Mac App Store can be
+automated with the proper App Store URL or shortened ID:  
+
+`app amphetamine/id937984704`  
+
 
 Install
 -------
 Open a terminal and run this command:  
 
-`curl https://raw.github.com/suderman/app/master/install.sh | sh`  
+`curl https://raw.githubusercontent.com/suderman/app/master/install.sh | sh`
 
 ### Or, clone the repo
 Download and copy `app` somewhere in your path, ie: 
 
 `git clone https://github.com/suderman/app.git`  
 `cp app/app /usr/local/bin`  
-
-### Or, install with Homebrew
-Tap my [Homebrew repository](https://github.com/suderman/homebrew-suds) and install:  
-
-`brew tap suderman/suds`  
-`brew install app`  
-
-You can also install via URL:
-
-`brew install https://raw.github.com/suderman/homebrew-suds/master/app.rb`  
 
 Options
 -------
@@ -69,7 +65,30 @@ Set `APP_SOURCE` to a directory on your local disk. You can still
 install via URL, but if a matching file is found within this directory 
 (or sub-directory), the local copy will be used instead. For example:  
 
-`APP_SOURCE=~/Downloads`
+`APP_SOURCE=~/Downloads`  
+
+### Look for installers at a URL
+Set `APP_URL` to the URL of a website hosting your installers. You can 
+still install via other URLs, but this allows for short-form URL 
+installations, skipping right to the directory/file. For example:  
+
+`APP_URL=https://www.mywebsite.com/installers`  
+
+### Client Certificate
+When downloading from an https:// URL, you may have your installers
+protected via client certificate authentication. In such case, curl will 
+attempt to use a client certificate in your OS X Keychain based on your 
+$USER env variable, or $USER@$DOMAIN if exists. You can explicity set
+which certificate to use with `APP_CERT`. For example:  
+
+`APP_CERT=homer@simpson.com`  
+
+### Mac App Store URL
+When installing from the Mac App Store, a short form of the URL can be 
+used (name-of-application/id123456789). The default URL is the US store, so
+be sure to set `APP_MAS` to your country's URL. For example:  
+
+`APP_MAS=macappstore://itunes.apple.com/ca/app`  
 
 ### Ignore specific installer directories
 Set `APP_IGNORE` to a comma-separated list of directories you
@@ -78,3 +97,8 @@ of a few odd-ball installers, you may discover others that require
 custom filters. This example shows the default setting:  
 
 `APP_IGNORE=payloads,packages,resources,deployment`
+
+See Also
+--------
+- [Homebrew](http://brew.sh/)  
+- [Homebrew Cask](http://caskroom.io/)  

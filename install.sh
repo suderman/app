@@ -1,10 +1,10 @@
 #!/bin/sh
 
-# 2013 Jon Suderman
-# https://github.com/suderman/symlink/
+# 2015 Jon Suderman
+# https://github.com/suderman/app/
 
 # Open a terminal and run this command:
-# curl https://raw.github.com/suderman/app/master/install.sh | sh
+# curl https://raw.githubusercontent.com/suderman/app/master/install.sh | sh
 
 # Ensure /usr/local/bin exists
 if [ ! -d "/usr/local" ]; then
@@ -14,7 +14,7 @@ if [ ! -d "/usr/local" ]; then
 fi
 
 # Download app into /usr/local/bin
-sudo curl https://raw.github.com/suderman/app/master/app -o /usr/local/bin/app
+sudo curl https://raw.githubusercontent.com/suderman/app/master/app -o /usr/local/bin/app
 
 # Set permissions
 ULB_OWNER=`ls -ld /usr/local/bin | awk '{print $3}'`:`ls -ld /usr/local/bin | awk '{print $4}'`

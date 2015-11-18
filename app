@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# 2012 Jon Suderman
+# 2015 Jon Suderman
 # https://github.com/suderman/app/
 
 require 'rubygems'
@@ -18,33 +18,51 @@ class App
     # Path to temp directory
     @tmp_path = "/tmp/#{File.basename(filename(source), '.*')}"
 
-    unless File.file? source
-
-      # Perhaps the source exists locally?
-      unless installers_path.empty?
-        local_search = `find "#{installers_path}" -iname "#{filename(source)}" | head -n 1`.strip
-        source = local_search unless local_search.empty?
-      end
-
-      # Source is a URL
-      if source.match(/^(http|ftp)/)
-        url = source
-
-        download_path = "#{@tmp_path}/download"
-        mkdir download_path
-
-        source = "#{download_path}/#{filename(url)}"
-        `curl "#{url}" -o "#{source}"`
-      end
-    end
-
-    source = File.expand_path source
-
-    if File.file? source
-      puts blue('Source ') + gray(source)
-      install [source]	
+    # First check if source is Mac App Store 
+    match = source.match(/([^\/]+\/id\d+)/)
+    if match
+      macappstore "#{installers_mas}#{match.to_s}"  
     else
-      puts blue('Source not found!')
+
+      unless File.file? source
+
+        # Perhaps the source exists locally?
+        unless installers_path.empty?
+          local_search = `find "#{installers_path}" -iname "#{filename(source)}" | head -n 1`.strip
+
+          # if found locally, update the source to the path
+          unless local_search.empty?
+            source = local_search
+            found_locally = true
+          end
+        end
+
+        unless found_locally
+          source = "#{installers_url}#{source}" unless source.match(/^(http|ftp)/)
+
+          # Source is a URL
+          if source.match(/^(http|ftp)/)
+            url = source
+
+            download_path = "#{@tmp_path}/download"
+            mkdir download_path
+
+            source = "#{download_path}/#{filename(url)}"
+            `curl #{client_certificate} "#{url}" -o "#{source}"`
+
+          end
+        end
+      end
+
+      source = File.expand_path source
+
+      if File.file? source
+        puts blue('Source ') + gray(source)
+        install [source]	
+      else
+        puts blue('Source not found!')
+      end
+
     end
 
   end
@@ -175,8 +193,8 @@ class App
     # Else, check if it's a directory
     return :dir if File.directory? source
 
-    # It's a mystery!
-    :unknown
+    # Else, perhaps it's in the Mac App Store
+    :mas
   end
 
 
@@ -325,6 +343,75 @@ class App
     File.expand_path @target || "/"
   end
 
+  # Name of client cert for curl downloads
+  def client_certificate
+    cert = ENV['DOMAIN'] ? "#{ENV['USER']}@#{ENV['DOMAIN']}" : ENV['USER']
+    cert = ENV['APP_CERT'] || cert
+    return (cert) ?  " -E #{cert} " : ""
+  end
+
+  # URL to where installers are stored
+  def installers_url
+    if ENV['APP_URL']
+      "#{ENV['APP_URL']}/"
+    else
+      ''
+    end
+  end
+
+  # URL to where installers are stored
+  def installers_mas
+    if ENV['APP_MAS']
+      "#{ENV['APP_MAS']}/"
+    else
+      'macappstore://itunes.apple.com/us/app/'
+    end
+  end
+
+  # Much taken from https://gist.github.com/phs/6505382
+  def macappstore url
+    puts blue('Mac App Store ') + gray(url)
+    `open '#{url}' && sleep 2
+
+    osascript 3<&0 <<'APPLESCRIPT'
+      on run argv
+        tell application "System Events"
+          tell window "App Store" of process "App Store"
+            set loaded to false
+            repeat until loaded = true
+              try
+                set installGroup to group 1 of group 1 of UI element 1 of scroll area 1 of group 1 of group 1
+                set installButton to button 1 of installGroup
+                set loaded to true
+              on error
+                delay 1
+              end try
+            end repeat
+            
+            if description of installButton contains "Install" and description of installButton contains "Free" then
+              click installButton
+            else
+              tell application "App Store" to quit
+              return
+            end if
+            
+            set installed to false
+            repeat until installed = true
+              delay 5
+              set installButton to button 1 of installGroup
+              if description of installButton contains "Open," then
+                set installed to true
+              end if
+            end repeat
+            
+            tell application "App Store" to quit
+            return
+            
+          end tell
+        end tell
+      end run
+APPLESCRIPT`
+  end
 end
 
 
