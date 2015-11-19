@@ -23,17 +23,34 @@ class App
       puts blue('Found existing ') + gray(@options[:check]) 
     else
 
-      # First check if source is Mac App Store 
-      match = source.match(/([^\/]+\/id\d+)/)
-      if match
-        macappstore "#{installers_mas}#{match.to_s}"  
-      else
+      # Check if source is homebrew, cask or Mac App Store 
+      match_brew = source.match(/^brew\/([\w\-\/]+)/)
+      match_cask = source.match(/^cask\/([\w\-\/]+)/)
+      match_mas = source.match(/([^\/]+\/id\d+)/)
 
+      # Install with brew 
+      if match_brew
+        package = match_brew.to_a.last.gsub('_',' ')  
+        puts blue('brew install --force ') + gray(package)
+        puts `brew install --force #{package}`.strip
+
+      # Install with cask 
+      elsif match_cask
+        package = match_cask.to_a.last.gsub('_',' ')  
+        puts blue('brew cask install --force ') + gray(package)
+        puts `brew cask install --force #{package}`.strip
+
+      # Install with  Mac App Store 
+      elsif match_mas
+        macappstore "#{installers_mas}#{match.to_s}"  
+
+      else
         unless File.file? source
 
           # Perhaps the source exists locally?
           unless installers_path.empty?
-            local_search = `find "#{installers_path}" -iname "#{filename(source)}" | head -n 1`.strip
+            # local_search = `find "#{installers_path}" -iname "#{filename(source)}" | head -n 1`.strip
+            local_search = `mdfind -onlyin '#{installers_path}' '(kMDItemFSName==\"#{filename(source)}\")' | head -n 1`.strip
 
             # if found locally, update the source to the path
             unless local_search.empty?
@@ -161,6 +178,14 @@ class App
           cp source, preference_panes_path
         end
 
+      when :qlgenerator
+        mkdir quicklook_path
+
+        if @options[:open]
+          open source
+        else
+          cp source, quicklook_path
+        end
 
       # Open safariextz files in Safari
       when :safariextz
@@ -198,8 +223,8 @@ class App
     # Else, check if it's a directory
     return :dir if File.directory? source
 
-    # Else, perhaps it's in the Mac App Store
-    :mas
+    # Else, unknown!
+    :unknown
   end
 
 
@@ -268,6 +293,10 @@ class App
     when :plugin
       return true if find? "~/Library/Internet Plug-Ins", name
       return true if find? "/Library/Internet Plug-Ins", name
+
+    when :qlgenerator
+      return true if find? "~/Library/QuickLook", name
+      return true if find? "/Library/QuickLook", name
 
     when :safariextz
       return true if find? "~/Library/Safari/Extensions", name
@@ -355,7 +384,8 @@ class App
     return false unless File.exist? path
 
     # Look for the file without sudo
-    find_command = "find \"#{path}\" -iname \"#{name}\" 2>&1 | head -n 1"
+    # find_command = "find \"#{path}\" -iname \"#{name}\" 2>&1 | head -n 1"
+    find_command = "mdfind -onlyin '#{path}' '(kMDItemFSName==\"#{name}\")' | head -n 1"
     results = `#{find_command}`.chomp
 
     # If that doesn't work, go full-sudo
@@ -402,6 +432,11 @@ class App
   # Path to where *.prefpane files get copied
   def preference_panes_path
     File.expand_path @target || "~/Library/PreferencePanes"
+  end
+
+  # Path to where *.qlgenerator files get copied
+  def quicklook_path
+    File.expand_path @target || "~/Library/QuickLook"
   end
 
   # Path to where *.service files get copied

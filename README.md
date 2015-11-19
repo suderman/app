@@ -18,11 +18,16 @@ Or, if I had set an installer directory or URL (see [customize](#customize) belo
 
 `app googlechrome.dmg`  
 
-Additionally, the installation of apps in the Mac App Store can be
-automated with the proper App Store URL or shortened ID:  
+The installation of apps in the Mac App Store can be automated with the proper App Store URL 
+or shortened ID:  
 
-`app amphetamine/id937984704`  
+`app amphetamine/id937984704` 
 
+Additionally, this can work as a wrapper for `brew` and `brew cask` install commands. Simply 
+preface the package name with brew/ or cask/ to initiate the install:  
+
+`app brew/wget`  
+`app cask/firefox`  
 
 Install
 -------
