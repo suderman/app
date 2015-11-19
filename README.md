@@ -1,7 +1,7 @@
 app
 ===
 
-OS X installer for URLs ending in `zip`, `dmg`, `pkg`, `mpkg`, `service`, `prefPane`, `safariextz`  
+OS X installer for URLs ending in `zip`, `dmg`, `pkg`, `mpkg`, `service`, `prefPane`, `qlgenerator`, `safariextz`  
 
 Intended to simplify the installation of OS X apps in the same way 
 [Homebrew](http://mxcl.github.com/homebrew/), [RubyGems](http://rubygems.org/), and 

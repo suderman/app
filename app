@@ -178,6 +178,7 @@ class App
           cp source, preference_panes_path
         end
 
+      # Copy qlgenerator files to the Library
       when :qlgenerator
         mkdir quicklook_path
 
@@ -248,7 +249,7 @@ class App
 
   # Known file types
   def file_types
-    "zip,dmg,app,pkg,mpkg,service,prefpane,safariextz"
+    "zip,dmg,app,pkg,mpkg,service,prefpane,qlgenerator,safariextz"
   end
 
 
