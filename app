@@ -42,7 +42,7 @@ class App
 
       # Install with  Mac App Store 
       elsif match_mas
-        macappstore "#{installers_mas}#{match.to_s}"  
+        macappstore "#{installers_mas}#{match_mas.to_s}"  
 
       else
         unless File.file? source
